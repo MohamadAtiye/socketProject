@@ -83,7 +83,7 @@ io.on("connection", function (socket) {
     if (socket.profile)
       msg.username = socket.profile.name;
     else msg.username = "no Profile";
-    
+
     if (allUsers[msg.SendTo]) {
       io.to(allUsers[msg.SendTo].id).emit("sendTo",
         msg
@@ -92,6 +92,8 @@ io.on("connection", function (socket) {
     else {
       //user not connected
     }
+
+    console.log("###################--- ",msg);
   });
 
   socket.on("sendToBySocketID", function (msg, callback) {
