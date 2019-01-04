@@ -14,9 +14,8 @@ const server = express()
 //create socket server
 const io = socketIO(server);
 
-let connectedPlayerSockets = [];
-let connectedPlayerNames = [];
-let roomsMetaData = [];
+
+let allUsers = [];
 
 
 // io.emit //==> to everyone including sender
@@ -37,150 +36,114 @@ let roomsMetaData = [];
 // });
 
 
-io.on("connection", function(socket) {
+io.on("connection", function (socket) {
   console.log("###################-- " + socket.id, " connected");
-  connectedPlayerSockets[socket.id] = socket;
 
 
-  socket.on("saySomething", function(msg, callback) {
-    console.log(socket.id, " said : " + JSON.stringify(msg));
-    if (callback) callback("you said : " + JSON.stringify(msg));
+  io.to(socket.id).emit("yourID",
+    {
+      ok: true,
+      id: socket.id
+    }
+  );
+
+  // socket.broadcast.emit("newUserJoined",
+  // {
+  //   ok: true,
+  //   id: socket.id
+  // }
+  // );
+
+
+  socket.on("sendProfile", function (msg, callback) {
+    msg.id = socket.id;
+    socket.profile = {};
+    socket.profile.name = msg.name;
+    socket.profile.userId = msg.userId;
+
+    allUsers[msg.userId] = JSON.parse(JSON.stringify(msg));
+
+
+    // if (allUsers[msg.SendTo]) {
+    //   io.to(allUsers[msg.SendTo].id).emit("yourID",
+    //     {
+    //       ok: true,
+    //       id: socket.id
+    //     }
+    //   );
+    // }
+    // else {
+    //   //user not connected
+    // }
   });
 
 
-  
-  ////////////////////////////////////////////////////////////////////////////////////////
-  socket.on("setPlayerName", function(msg, callback) {
-    let newName = msg.name.trim();
-    if (connectedPlayerNames.includes(newName)) {
-      if (callback) callback({ ok: false, error: "**name already in use" });
-    } else if (newName.length < 5 || newName.length > 30) {
-      if (callback)
-        callback({
-          ok: false,
-          error: "**choose name between 5 and 30 characters"
-        });
-    } else {
-      socket.profile = {};
-      socket.profile.name = newName;
-      connectedPlayerSockets[socket.id] = socket;
-      connectedPlayerNames.push(newName);
-      if (callback)
-        callback({ ok: true, error: "", newName: newName, id: socket.id });
+  socket.on("sendToByUserID", function (msg, callback) {
 
-      console.log("###################-- new received a name");
-      console.log(socket.id, socket.profile);
+    msg.username = socket.profile.name;
+
+    if (allUsers[msg.SendTo]) {
+      io.to(allUsers[msg.SendTo].id).emit("sendTo",
+        msg
+      );
+    }
+    else {
+      //user not connected
     }
   });
 
-  ////////////////////////////////////////////////////////////////////////////////////////
-  socket.on("joinRoom", function(msg, callback) {
-    let newRoom = msg.room.trim();
-    if (!socket.profile || !socket.profile.name) {
-      if (callback)
-        callback({
-          ok: false,
-          error: "**choose a name first, then join a room"
-        });
-    } else if (newRoom.length < 5 || newRoom.length > 30) {
-      if (callback)
-        callback({
-          ok: false,
-          error: "**choose room name between 5 and 30 characters"
-        });
-    } else {
-      let roomExist = false;
-      let roomMeta = {};
-      if (roomsMetaData[newRoom]) {
-        roomExist = true;
-        roomMeta = roomsMetaData[newRoom];
-      }
-
-      socket.join(newRoom, () => {
-        socket.profile.room = newRoom;
-        let newMsg = {
-          ts: Date.now(),
-          from: "system",
-          msg: socket.profile.name + " has joined this room",
-          color: "red"
-        };
-        socket.to(newRoom).emit("roomChat", newMsg);
-
-        if (callback)
-          callback({
-            ok: true,
-            error: "",
-            newName: socket.profile.name,
-            newRoom: newRoom,
-            id: socket.id,
-            roomMeta: roomMeta
-          });
-        console.log("###################-- player joined a room");
-        console.log(socket.id, socket.profile);
-      });
-    }
-  });
-
-  socket.on("roomChat", function(msg, callback) {
-    if (!socket.profile || !socket.profile.room) return;
-    msg.ts = Date.now();
-    socket.to(socket.profile.room).emit("roomChat", msg);
-
-    if (callback) callback(msg);
-
-    console.log(
-      "###################-- message to room : " + socket.profile.room
-    );
-    console.log(msg);
+  socket.on("sendToBySocketID", function (msg, callback) {
+      io.to(msg.SendTo).emit("sendTo",
+        msg
+      );
   });
 
 
   ////////////////////////////////////////////////////////////////////////////////////////
-  socket.on("disconnect", function() {
+  socket.on("disconnect", function () {
     let name = "";
-    let room = "";
     if (socket.profile) {
       name = socket.profile.name;
-      room = socket.profile.room;
     }
     console.log("###################-- " + socket.id, name, " disconnected ");
 
     //-- remove name from used names list
-    var index = connectedPlayerNames.indexOf(name);
+    var index = allUsers.indexOf(name);
     if (index > -1) {
-      connectedPlayerNames.splice(index, 1);
+      allUsers.splice(index, 1);
     }
-    let newMsg = {
-      ts: Date.now(),
-      from: "system",
-      msg: name + " has left this room",
-      color: "red"
-    };
 
-    io.to(room).emit("roomChat", newMsg);
+    // let newMsg = {
+    //   ts: Date.now(),
+    //   from: "system",
+    //   msg: name + " has left this room",
+    //   color: "red"
+    // };
 
-    //-- delete player socket
-    delete connectedPlayerSockets[socket.id];
+    // io.to(room).emit("roomChat", newMsg);
 
-    //get all active rooms and remove any meta data of empty room
-    var room_list = [];
-    for (var oneRoom in io.sockets.adapter.rooms) {
-      room_list.push(oneRoom);
-    }
-    let room_keys = Object.keys(roomsMetaData);
+    // //-- delete player socket
+    // delete connectedPlayerSockets[socket.id];
 
-    for (let index = 0; index < room_keys.length; index++) {
-      if (room_list.indexOf(room_keys[index]) < 0) {
-        delete roomsMetaData[room_keys[index]];
-      }
-    }
-    console.log(
-      "###################-- All rooms (after disconnect) " + room_list
-    );
-    console.log(
-      "###################-- All rooms METADATA (after disconnect) " +
-        roomsMetaData
-    );
+    // //get all active rooms and remove any meta data of empty room
+    // var room_list = [];
+    // for (var oneRoom in io.sockets.adapter.rooms) {
+    //   room_list.push(oneRoom);
+    // }
+    // let room_keys = Object.keys(roomsMetaData);
+
+    // for (let index = 0; index < room_keys.length; index++) {
+    //   if (room_list.indexOf(room_keys[index]) < 0) {
+    //     delete roomsMetaData[room_keys[index]];
+    //   }
+    // }
+    // console.log(
+    //   "###################-- All rooms (after disconnect) " + room_list
+    // );
+    // console.log(
+    //   "###################-- All rooms METADATA (after disconnect) " +
+    //   roomsMetaData
+    // );
   });
 
   ////////////////////////////////////////////////////////////////////////////////////////
