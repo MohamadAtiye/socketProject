@@ -64,6 +64,8 @@ io.on("connection", function (socket) {
     allUsers[msg.userId] = JSON.parse(JSON.stringify(msg));
 
 
+    console.log("###################--- sendProfile --- ",msg);
+
     // if (allUsers[msg.SendTo]) {
     //   io.to(allUsers[msg.SendTo].id).emit("yourID",
     //     {
@@ -93,7 +95,7 @@ io.on("connection", function (socket) {
       //user not connected
     }
 
-    console.log("###################--- ",msg);
+    console.log("###################--- sendToByUserID --- ",msg);
   });
 
   socket.on("sendToBySocketID", function (msg, callback) {
