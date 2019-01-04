@@ -80,8 +80,10 @@ io.on("connection", function (socket) {
 
   socket.on("sendToByUserID", function (msg, callback) {
 
-    msg.username = socket.profile.name;
-
+    if (socket.profile)
+      msg.username = socket.profile.name;
+    else msg.username = "no Profile";
+    
     if (allUsers[msg.SendTo]) {
       io.to(allUsers[msg.SendTo].id).emit("sendTo",
         msg
@@ -93,9 +95,9 @@ io.on("connection", function (socket) {
   });
 
   socket.on("sendToBySocketID", function (msg, callback) {
-      io.to(msg.SendTo).emit("sendTo",
-        msg
-      );
+    io.to(msg.SendTo).emit("sendTo",
+      msg
+    );
   });
 
 
