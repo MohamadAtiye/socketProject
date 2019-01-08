@@ -85,7 +85,7 @@ io.on("connection", function (socket) {
     if (socket.profile)
       msg.username = socket.profile.name;
     else msg.username = "no Profile";
-
+console.log(msg,allUsers[msg.SendTo]);
     if (allUsers[msg.SendTo]) {
       io.to(allUsers[msg.SendTo].id).emit("sendTo",
         msg
